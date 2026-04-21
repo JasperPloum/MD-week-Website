@@ -36,6 +36,7 @@ body{font-family:var(--ff);background:var(--bg);color:var(--text);min-height:100
 .auth-wrap{position:relative;z-index:1;width:100%;max-width:410px;padding:2rem 1rem;display:flex;flex-direction:column;align-items:center;gap:1.25rem;animation:fadeUp .4s var(--ease) both}
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 
+.brand-immage{width:50px;height:auto;object-fit:contain}
 .brand{display:flex;align-items:center;gap:10px}
 .brand-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--surface)}
 .brand-dot img{width:32px;height:auto;object-fit:contain}
