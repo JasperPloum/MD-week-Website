@@ -33,7 +33,7 @@ const FAKE_USERS = [
     { first:'Sam',   last:'Torres', username:'samT',     color:'#e8c44a' },
 ];
 const DEFAULT_POSTS = [
-    { id:'f1', username:'alexr',    name:'Alex Rivera',  color:'#5b6ef5', body:'Just discovered this amazing little café downtown. The cortado here is unreal ☕', time:Date.now()-7200000,  likes:14, liked:false },
+    { id:'f1', username:'alexr',    name:'Alex Rivera',  color:'#5b6ef5', body:'Hey ik heb zin om een keertje te gaan wandelen in het bos maar ik kan niemand vinden om mee te gaan, is er iemand die mee wilt gaan? laat het me dan effe weten!', time:Date.now()-7200000,  likes:14, liked:false },
     { id:'f2', username:'mia_chen', name:'Mia Chen',     color:'#4caf86', body:'Working on a new design system — clean grids, fewer components, more clarity. Less is genuinely more.', time:Date.now()-18000000, likes:31, liked:false },
     { id:'f3', username:'samT',     name:'Sam Torres',   color:'#e8c44a', body:'Hot take: the best productivity tool is a long walk with no phone. Change my mind.', time:Date.now()-39600000, likes:52, liked:false },
 ];
@@ -74,7 +74,7 @@ function renderSuggestions() {
     <div class="suggest-row">
       <div class="sug-av" style="background:${u.color}">${u.first[0]}</div>
       <div class="sug-info"><div class="sug-name">${u.first} ${u.last}</div><div class="sug-handle">@${u.username}</div></div>
-      <button class="btn-sug" id="sug${i}" onclick="toggleFollow(${i})">Follow</button>
+      <button class="btn-sug" id="sug${i}" onclick="toggleFollow(${i})">Volgen</button>
     </div>`).join('');
 }
 
@@ -127,10 +127,10 @@ function postHTML(p) {
         <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>${p.likes}
       </button>
       <button class="post-action" onclick="toast('Replies coming soon!')">
-        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Reply
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Reageren
       </button>
       <button class="post-action" onclick="toast('Link copied!')">
-        <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Share
+        <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Delen
       </button>
     </div>
   </div>`;
@@ -182,10 +182,10 @@ async function logout() {
 
 function timeAgo(ts) {
     const s = Math.floor((Date.now()-ts)/1000);
-    if (s<60) return 'just now';
-    if (s<3600) return Math.floor(s/60)+'m ago';
-    if (s<86400) return Math.floor(s/3600)+'h ago';
-    return Math.floor(s/86400)+'d ago';
+    if (s<60) return 'nu net';
+    if (s<3600) return Math.floor(s/60)+'m geleden';
+    if (s<86400) return Math.floor(s/3600)+'h geleden';
+    return Math.floor(s/86400)+'d geleden';
 }
 function esc(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 

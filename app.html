@@ -16,7 +16,7 @@
     <span class="nav-brand">Mingle</span>
     <div class="nav-search">
         <span class="nav-search-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-        <input type="text" placeholder="Search Mingle…">
+        <input type="text" placeholder="Zoeken op Mingle…">
     </div>
     <div class="nav-actions">
         <button class="nav-icon-btn" onclick="toast('No notifications yet!')"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
@@ -27,16 +27,16 @@
 <div class="app-body">
     <aside class="sidebar">
         <button class="sidebar-link active" id="sl-home" onclick="showView('feed')">
-            <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home
+            <img src="Icons/home-icon.png" alt="Home Icon" class="icon">Home
         </button>
         <button class="sidebar-link" id="sl-profile" onclick="showView('profile')">
-            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>My profile
+            <img src="Icons/profile-icon.png" alt="Profile Icon" class="icon">Profiel
         </button>
-        <button class="sidebar-link" onclick="toast('Messages coming soon!')">
-            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Messages
+        <button class="sidebar-link" onclick="toast('Berichten komen er snel aan!')">
+            <img src="Icons/chat-icon.png" alt="Chat Icon" class="icon">Berichten
         </button>
-        <button class="sidebar-link" onclick="toast('Explore coming soon!')">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>Explore
+        <button class="sidebar-link" onclick="toast('Instellingen komen er snel aan!')">
+            <img src="Icons/settings-icon.png" alt="Settings Icon" class="icon">Instellingen
         </button>
         <div class="sidebar-spacer"></div>
         <button class="sidebar-link danger" onclick="logout()">
@@ -51,8 +51,8 @@
                 <div class="compose-inner">
                     <div class="c-avatar" id="compose-av"></div>
                     <div class="compose-right">
-                        <textarea id="compose-text" placeholder="What's on your mind?" rows="2"></textarea>
-                        <div class="compose-footer"><button class="btn-post" onclick="submitPost()">Post</button></div>
+                        <textarea id="compose-text" placeholder="Waar denk je aan?" rows="2"></textarea>
+                        <div class="compose-footer"><button class="btn-post" onclick="submitPost()">Plaatsen</button></div>
                     </div>
                 </div>
             </div>
@@ -92,7 +92,7 @@
 
     <aside class="right-panel">
         <div class="widget">
-            <div class="widget-title">Who to follow</div>
+            <div class="widget-title">Misschien ken je</div>
             <div class="suggest" id="suggestions"></div>
         </div>
         <div class="widget" style="font-size:12px;color:var(--hint);line-height:1.8">
