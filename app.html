@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="Images/Mingle-Icon.png">
     <title>Mingle</title>
-
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -13,6 +12,43 @@
 <body>
 
 <div class="toast" id="toast"></div>
+
+<!-- USER PROFILE MODAL -->
+<div class="modal-overlay hidden" id="modal-overlay">
+    <div class="user-modal">
+        <button class="modal-close" onclick="closeUserModal()">
+            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <div class="modal-cover">
+            <div class="modal-cover-dots"></div>
+        </div>
+        <div class="modal-body">
+            <div class="modal-av-wrap">
+                <div class="modal-av" id="modal-av"></div>
+            </div>
+            <div class="modal-name" id="modal-name"></div>
+            <div class="modal-handle" id="modal-handle"></div>
+            <div class="modal-stats">
+                <div class="modal-stat">
+                    <span class="modal-stat-n" id="modal-posts">0</span>
+                    <span class="modal-stat-l">Activiteiten</span>
+                </div>
+                <div class="modal-stat">
+                    <span class="modal-stat-n" id="modal-followers">0</span>
+                    <span class="modal-stat-l">Volgers</span>
+                </div>
+                <div class="modal-stat">
+                    <span class="modal-stat-n" id="modal-following">0</span>
+                    <span class="modal-stat-l">Volgend</span>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-follow" id="modal-follow-btn">Volgen</button>
+                <button class="btn-msg"    id="modal-msg-btn">Bericht</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- NAVIGATION -->
 <nav class="nav">
@@ -26,14 +62,16 @@
     </div>
 
     <div class="nav-actions">
-        <button class="nav-icon-btn" onclick="toast('Geen meldingen nog!')">
-            <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <button class="nav-icon-btn" onclick="showView('messages')" title="Berichten">
+            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span class="nav-badge" id="msg-badge" style="display:none">0</span>
         </button>
         <div class="nav-avatar" id="nav-avatar" onclick="showView('profile')"></div>
     </div>
 </nav>
 
 <div class="app-body">
+
     <!-- LEFT SIDEBAR -->
     <aside class="sidebar">
         <button class="sidebar-link active" id="sl-home" onclick="showView('feed')">
@@ -44,8 +82,9 @@
             <img src="Icons/profile-icon.png" class="icon">Profiel
         </button>
 
-        <button class="sidebar-link" onclick="toast('Berichten komen er snel aan!')">
+        <button class="sidebar-link" id="sl-messages" onclick="showView('messages')">
             <img src="Icons/chat-icon.png" class="icon">Berichten
+            <span class="sidebar-badge" id="sidebar-msg-badge" style="display:none">0</span>
         </button>
 
         <button class="sidebar-link" onclick="toast('Instellingen komen er snel aan!')">
@@ -65,48 +104,26 @@
 
         <!-- FEED VIEW -->
         <div class="view active" id="view-feed">
-
-            <!-- CREATE ACTIVITY COMPOSE -->
             <div class="compose">
                 <div class="compose-inner">
                     <div class="c-avatar" id="compose-av"></div>
-
                     <div class="compose-right">
                         <div class="compose-fields">
-                            <!-- Row 1: Location + Date -->
                             <div class="compose-field-row">
-                                <input
-                                        type="text"
-                                        id="compose-location"
-                                        class="compose-input"
-                                        placeholder="📍 Locatie (bijv. Eindhoven)"
-                                        maxlength="80"
-                                >
-                                <input
-                                        type="date"
-                                        id="compose-date"
-                                        class="compose-input"
-                                >
+                                <input type="text" id="compose-location" class="compose-input" placeholder="📍 Locatie (bijv. Eindhoven)" maxlength="80">
+                                <input type="date" id="compose-date" class="compose-input">
                             </div>
-                            <!-- Row 2: Category -->
                             <select id="compose-category" class="compose-input">
                                 <option value="Bioscoop">🎬 Bioscoop</option>
                                 <option value="Sport">⚽ Sport</option>
                                 <option value="Wandelen">🥾 Wandelen</option>
-                                <option value="Eten & Drinken">🍔 Eten &amp; Drinken</option>
+                                <option value="Eten &amp; Drinken">🍔 Eten &amp; Drinken</option>
                                 <option value="Muziek">🎵 Muziek</option>
                                 <option value="Gaming">🎮 Gaming</option>
                                 <option value="Reizen">✈️ Reizen</option>
                                 <option value="Overig">📌 Overig</option>
                             </select>
-                            <!-- Row 3: Optional description -->
-                            <input
-                                    type="text"
-                                    id="compose-description"
-                                    class="compose-input"
-                                    placeholder="Korte beschrijving (optioneel)"
-                                    maxlength="140"
-                            >
+                            <input type="text" id="compose-description" class="compose-input" placeholder="Korte beschrijving (optioneel)" maxlength="140">
                         </div>
                         <div class="compose-footer">
                             <button class="btn-post" onclick="submitPost()">Plaatsen</button>
@@ -115,7 +132,6 @@
                 </div>
             </div>
 
-            <!-- ACTIVITY FEED -->
             <div id="feed-list" style="display:flex;flex-direction:column;gap:1rem"></div>
         </div>
 
@@ -123,39 +139,28 @@
         <div class="view" id="view-profile">
             <div class="profile-header">
                 <div class="profile-cover"><div class="profile-cover-dots"></div></div>
-
                 <div class="profile-info">
                     <div class="profile-av-wrap">
                         <div class="profile-av" id="p-av"></div>
                     </div>
-
-                    <div class="profile-name" id="p-name"></div>
+                    <div class="profile-name"   id="p-name"></div>
                     <div class="profile-handle" id="p-handle"></div>
-
                     <div class="profile-bio">Hey there! I just joined Mingle 👋</div>
-
                     <div class="profile-meta">
                         <span class="profile-meta-item">
-                            <svg viewBox="0 0 24 24">
-                                <rect x="3" y="4" width="18" height="18" rx="2"/>
-                                <line x1="16" y1="2" x2="16" y2="6"/>
-                                <line x1="8" y1="2" x2="8" y2="6"/>
-                                <line x1="3" y1="10" x2="21" y2="10"/>
-                            </svg>
+                            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                             Lid geworden: <span id="p-joined"></span>
                         </span>
                     </div>
-
                     <div class="profile-actions">
                         <button class="btn-outline" onclick="toast('Profiel bewerken komt snel!')">Profiel bewerken</button>
                         <button class="btn-outline" onclick="toast('Link gekopieerd!')">Delen</button>
                     </div>
                 </div>
-
                 <div class="profile-stats">
                     <div><span class="profile-stat-n" id="p-posts">0</span><span class="profile-stat-l">Activiteiten</span></div>
-                    <div><span class="profile-stat-n">0</span><span class="profile-stat-l">Volgers</span></div>
-                    <div><span class="profile-stat-n">0</span><span class="profile-stat-l">Volgend</span></div>
+                    <div><span class="profile-stat-n" id="p-followers">0</span><span class="profile-stat-l">Volgers</span></div>
+                    <div><span class="profile-stat-n" id="p-following">0</span><span class="profile-stat-l">Volgend</span></div>
                 </div>
             </div>
 
@@ -165,24 +170,68 @@
                 <div id="p-empty" class="empty" style="display:none">Nog geen activiteiten. Maak er een aan!</div>
             </div>
         </div>
+
+        <!-- MESSAGES VIEW -->
+        <div class="view" id="view-messages">
+            <div class="messages-layout">
+
+                <!-- Conversation list -->
+                <div class="conv-list">
+                    <div class="conv-list-header">Berichten</div>
+                    <div class="conv-items" id="conv-items">
+                        <div class="conv-empty">Nog geen berichten.<br>Klik op iemand in de feed om te starten.</div>
+                    </div>
+                </div>
+
+                <!-- Chat pane -->
+                <div class="chat-pane">
+                    <div class="chat-header" id="chat-header" style="display:none">
+                        <div class="chat-header-av" id="chat-header-av"></div>
+                        <div>
+                            <div class="chat-header-name"   id="chat-header-name"></div>
+                            <div class="chat-header-handle" id="chat-header-handle"></div>
+                        </div>
+                    </div>
+
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="chat-placeholder" id="chat-placeholder">
+                            Selecteer een gesprek<br>of stuur iemand een bericht via de feed.
+                        </div>
+                    </div>
+
+                    <div class="chat-input-row" id="chat-input-row" style="display:none">
+                        <input type="text" class="chat-input" id="chat-input" placeholder="Typ een bericht…" maxlength="500">
+                        <button class="btn-send" onclick="sendMessage()">
+                            <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
     </main>
 
     <!-- RIGHT SIDEBAR -->
     <aside class="right-panel">
         <div class="widget">
             <div class="widget-title">Over Mingle</div>
-            <div style="font-size:13px;color:var(--muted);line-height:1.7">
-                Vind mensen om activiteiten mee te doen in jouw buurt. Maak een activiteit aan en zie wie er aansluit!
+            <div style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.7">
+                Vind mensen om activiteiten mee te doen in jouw buurt. Klik op een naam in de feed om iemand te volgen of een bericht te sturen!
             </div>
         </div>
-
-        <div class="widget" style="font-size:12px;color:var(--hint);line-height:1.8">
-            <span style="color:var(--muted);font-weight:500;display:block;margin-bottom:4px">Mingle</span>
+        <div class="widget" style="font-size:12px;color:rgba(255,255,255,0.25);line-height:1.8">
+            <span style="color:rgba(255,255,255,0.45);font-weight:500;display:block;margin-bottom:4px">Mingle</span>
             Powered by Firebase
         </div>
     </aside>
+
 </div>
 
+<script>
+    // Show chat header when a conversation is selected
+    const _origSelect = window.selectConversation;
+</script>
 <script type="module" src="main.js"></script>
 
 </body>
