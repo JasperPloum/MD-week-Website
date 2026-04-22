@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="nl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="Icons/Mingle-Icon.png">
+    <link rel="icon" type="image/png" href="Images/Mingle-Icon.png">
     <title>Mingle</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
@@ -11,10 +11,6 @@
 </head>
 
 <body>
-<div class="blobs">
-    <div class="blob b1"></div>
-    <div class="blob b2"></div>
-</div>
 
 <div class="toast" id="toast"></div>
 
@@ -30,7 +26,7 @@
     </div>
 
     <div class="nav-actions">
-        <button class="nav-icon-btn" onclick="toast('No notifications yet!')">
+        <button class="nav-icon-btn" onclick="toast('Geen meldingen nog!')">
             <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         </button>
         <div class="nav-avatar" id="nav-avatar" onclick="showView('profile')"></div>
@@ -60,7 +56,7 @@
 
         <button class="sidebar-link danger" onclick="logout()">
             <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            Sign out
+            Uitloggen
         </button>
     </aside>
 
@@ -69,12 +65,49 @@
 
         <!-- FEED VIEW -->
         <div class="view active" id="view-feed">
+
+            <!-- CREATE ACTIVITY COMPOSE -->
             <div class="compose">
                 <div class="compose-inner">
                     <div class="c-avatar" id="compose-av"></div>
 
                     <div class="compose-right">
-                        <textarea id="compose-text" placeholder="Waar denk je aan?" rows="2"></textarea>
+                        <div class="compose-fields">
+                            <!-- Row 1: Location + Date -->
+                            <div class="compose-field-row">
+                                <input
+                                        type="text"
+                                        id="compose-location"
+                                        class="compose-input"
+                                        placeholder="📍 Locatie (bijv. Eindhoven)"
+                                        maxlength="80"
+                                >
+                                <input
+                                        type="date"
+                                        id="compose-date"
+                                        class="compose-input"
+                                >
+                            </div>
+                            <!-- Row 2: Category -->
+                            <select id="compose-category" class="compose-input">
+                                <option value="Bioscoop">🎬 Bioscoop</option>
+                                <option value="Sport">⚽ Sport</option>
+                                <option value="Wandelen">🥾 Wandelen</option>
+                                <option value="Eten & Drinken">🍔 Eten &amp; Drinken</option>
+                                <option value="Muziek">🎵 Muziek</option>
+                                <option value="Gaming">🎮 Gaming</option>
+                                <option value="Reizen">✈️ Reizen</option>
+                                <option value="Overig">📌 Overig</option>
+                            </select>
+                            <!-- Row 3: Optional description -->
+                            <input
+                                    type="text"
+                                    id="compose-description"
+                                    class="compose-input"
+                                    placeholder="Korte beschrijving (optioneel)"
+                                    maxlength="140"
+                            >
+                        </div>
                         <div class="compose-footer">
                             <button class="btn-post" onclick="submitPost()">Plaatsen</button>
                         </div>
@@ -82,7 +115,8 @@
                 </div>
             </div>
 
-            <div id="feed-list"></div>
+            <!-- ACTIVITY FEED -->
+            <div id="feed-list" style="display:flex;flex-direction:column;gap:1rem"></div>
         </div>
 
         <!-- PROFILE VIEW -->
@@ -108,27 +142,27 @@
                                 <line x1="8" y1="2" x2="8" y2="6"/>
                                 <line x1="3" y1="10" x2="21" y2="10"/>
                             </svg>
-                            Joined <span id="p-joined"></span>
+                            Lid geworden: <span id="p-joined"></span>
                         </span>
                     </div>
 
                     <div class="profile-actions">
-                        <button class="btn-outline" onclick="toast('Edit profile coming soon!')">Edit profile</button>
-                        <button class="btn-outline" onclick="toast('Link copied!')">Share</button>
+                        <button class="btn-outline" onclick="toast('Profiel bewerken komt snel!')">Profiel bewerken</button>
+                        <button class="btn-outline" onclick="toast('Link gekopieerd!')">Delen</button>
                     </div>
                 </div>
 
                 <div class="profile-stats">
-                    <div><span class="profile-stat-n" id="p-posts">0</span><span class="profile-stat-l">Posts</span></div>
-                    <div><span class="profile-stat-n">0</span><span class="profile-stat-l">Followers</span></div>
-                    <div><span class="profile-stat-n">0</span><span class="profile-stat-l">Following</span></div>
+                    <div><span class="profile-stat-n" id="p-posts">0</span><span class="profile-stat-l">Activiteiten</span></div>
+                    <div><span class="profile-stat-n">0</span><span class="profile-stat-l">Volgers</span></div>
+                    <div><span class="profile-stat-n">0</span><span class="profile-stat-l">Volgend</span></div>
                 </div>
             </div>
 
             <div>
-                <div class="section-label">Posts</div>
+                <div class="section-label">Mijn activiteiten</div>
                 <div id="p-posts-list" style="display:flex;flex-direction:column;gap:1rem"></div>
-                <div id="p-empty" class="empty" style="display:none">No posts yet. Go say something!</div>
+                <div id="p-empty" class="empty" style="display:none">Nog geen activiteiten. Maak er een aan!</div>
             </div>
         </div>
     </main>
@@ -136,8 +170,10 @@
     <!-- RIGHT SIDEBAR -->
     <aside class="right-panel">
         <div class="widget">
-            <div class="widget-title">Misschien ken je</div>
-            <div class="suggest" id="suggestions"></div>
+            <div class="widget-title">Over Mingle</div>
+            <div style="font-size:13px;color:var(--muted);line-height:1.7">
+                Vind mensen om activiteiten mee te doen in jouw buurt. Maak een activiteit aan en zie wie er aansluit!
+            </div>
         </div>
 
         <div class="widget" style="font-size:12px;color:var(--hint);line-height:1.8">
@@ -147,7 +183,6 @@
     </aside>
 </div>
 
-<!-- LOAD FIREBASE VERSION OF YOUR APP -->
 <script type="module" src="main.js"></script>
 
 </body>

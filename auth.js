@@ -112,14 +112,14 @@ window.handleLogin = async function () {
 window.handleSignup = async function () {
     const first    = document.getElementById("su-first").value.trim();
     const last     = document.getElementById("su-last").value.trim();
-    const username = document.getElementById("su-user").value.trim().toLowerCase();
+    const username = document.getElementById("su-user").value.trim() //.toLowerCase();
     const email    = document.getElementById("su-email").value.trim();
     const pw       = document.getElementById("su-pw").value;
 
     if (!first || !last || !username || !email || !pw) {
         return showMsg("Please fill in all fields.", "error");
     }
-    if (!/^[a-z0-9_]+$/.test(username)) {
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
         return showMsg("Username may only contain letters, numbers, and underscores.", "error");
     }
     if (pw.length < 8) {
