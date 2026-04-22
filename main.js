@@ -35,6 +35,88 @@ let feedUnsub     = null;
 let toastTimer;
 let unreadCount   = 0;
 
+// ── DOM ready — wire up all static event listeners ────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+
+    // Sidebar nav
+    document.querySelectorAll(".sidebar-link[data-view]").forEach(btn => {
+        btn.addEventListener("click", () => showView(btn.dataset.view));
+    });
+
+    // Nav buttons
+    document.getElementById("nav-msg-btn")?.addEventListener("click", () => showView("messages"));
+    document.getElementById("nav-avatar")?.addEventListener("click", () => showView("profile"));
+
+    // Logout
+    document.getElementById("btn-logout")?.addEventListener("click", logout);
+
+    // Post button
+    document.getElementById("btn-post")?.addEventListener("click", submitPost);
+
+    // Send message button
+    document.getElementById("btn-send")?.addEventListener("click", sendMessage);
+
+    // Chat input — Enter key
+    document.getElementById("chat-input")?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    // Modal close button
+    document.getElementById("modal-close-btn")?.addEventListener("click", closeUserModal);
+
+    // Modal overlay click-outside
+    document.getElementById("modal-overlay")?.addEventListener("click", function (e) {
+        if (e.target === this) closeUserModal();
+    });
+
+    // Feed list — delegated clicks for join, delete, and user avatar
+    document.getElementById("feed-list")?.addEventListener("click", (e) => {
+        const joinBtn = e.target.closest(".btn-join");
+        if (joinBtn) {
+            const card = joinBtn.closest(".activity-card");
+            if (card) joinActivity(card.dataset.id);
+            return;
+        }
+        const deleteBtn = e.target.closest(".activity-delete");
+        if (deleteBtn) {
+            const card = deleteBtn.closest(".activity-card");
+            if (card) deleteActivity(card.dataset.id);
+            return;
+        }
+        const authorEl = e.target.closest(".activity-author-av, .activity-author-name");
+        if (authorEl) {
+            const card = authorEl.closest(".activity-card");
+            if (card) openUserModal(card.dataset.username);
+            return;
+        }
+    });
+
+    // Profile posts list — same delegated clicks
+    document.getElementById("p-posts-list")?.addEventListener("click", (e) => {
+        const joinBtn = e.target.closest(".btn-join");
+        if (joinBtn) {
+            const card = joinBtn.closest(".activity-card");
+            if (card) joinActivity(card.dataset.id);
+            return;
+        }
+        const deleteBtn = e.target.closest(".activity-delete");
+        if (deleteBtn) {
+            const card = deleteBtn.closest(".activity-card");
+            if (card) deleteActivity(card.dataset.id);
+            return;
+        }
+    });
+
+    // Conv list — delegated clicks
+    document.getElementById("conv-items")?.addEventListener("click", (e) => {
+        const item = e.target.closest(".conv-item");
+        if (item) selectConversation(item.dataset.convId);
+    });
+});
+
 // ── Boot ──────────────────────────────────────────────────────────────────
 onAuthStateChanged(auth, async (firebaseUser) => {
     if (!firebaseUser) {
@@ -47,17 +129,14 @@ onAuthStateChanged(auth, async (firebaseUser) => {
 
         let snap = await getDoc(doc(db, "users", firebaseUser.uid));
 
-        // Retry once — write may not have propagated yet right after signup
         if (!snap.exists()) {
             await new Promise(r => setTimeout(r, 1000));
             snap = await getDoc(doc(db, "users", firebaseUser.uid));
         }
 
         if (!snap.exists()) {
-            // User document missing — create it automatically
-            const userRef = doc(db, "users", firebaseUser.uid);
+            const userRef      = doc(db, "users", firebaseUser.uid);
             const fallbackName = firebaseUser.email.split("@")[0];
-
             await setDoc(userRef, {
                 username: fallbackName,
                 first:    fallbackName,
@@ -65,7 +144,6 @@ onAuthStateChanged(auth, async (firebaseUser) => {
                 color:    "#5b6ef5",
                 joined:   Date.now()
             });
-
             snap = await getDoc(userRef);
             console.log("User document created automatically.");
         }
@@ -124,9 +202,7 @@ function listenToFeed() {
             renderFeed();
 
             const active = document.querySelector(".view.active");
-            if (active?.id === "view-profile") {
-                renderProfile();
-            }
+            if (active?.id === "view-profile") renderProfile();
         },
         (err) => {
             console.error("Feed listener error:", err);
@@ -158,24 +234,23 @@ function activityHTML(a) {
 
     let dateObj = null;
     if (a.date) dateObj = new Date(a.date + "T00:00:00");
-    const dayNum   = dateObj ? dateObj.getDate() : "?";
-    const monthStr = dateObj ? dateObj.toLocaleDateString("nl-NL", { month: "short" }) : "";
+    const dayNum    = dateObj ? dateObj.getDate() : "?";
+    const monthStr  = dateObj ? dateObj.toLocaleDateString("nl-NL", { month: "short" }) : "";
     const joinCount = joinedBy.length;
 
     const ts = a.time?.toMillis ? a.time.toMillis() : a.time;
 
-    const deleteBtn = isOwner ? `
-        <button class="activity-delete" onclick="deleteActivity('${a.id}')" title="Verwijder">
-            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-        </button>` : "";
+    const deleteBtn = isOwner
+        ? `<button class="activity-delete" title="Verwijder">
+               <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+           </button>`
+        : "";
 
     return `
-    <div class="activity-card" id="act-${a.id}">
+    <div class="activity-card" data-id="${esc(a.id)}" data-username="${esc(a.username)}">
         <div class="activity-author-row">
-            <div class="activity-author-av" style="background:${esc(a.color || '#5b6ef5')}"
-                onclick="openUserModal('${esc(a.username)}')">${esc((a.name || "?")[0])}</div>
-            <span class="activity-author-name"
-                onclick="openUserModal('${esc(a.username)}')">${esc(a.name)} · @${esc(a.username)} · ${timeAgo(ts)}</span>
+            <div class="activity-author-av" style="background:${esc(a.color || '#5b6ef5')}">${esc((a.name || "?")[0])}</div>
+            <span class="activity-author-name">${esc(a.name)} · @${esc(a.username)} · ${timeAgo(ts)}</span>
             ${deleteBtn}
         </div>
         <div class="activity-card-top">
@@ -193,7 +268,7 @@ function activityHTML(a) {
             <span class="activity-tag">${esc(a.category || "Activiteit")}</span>
             <span class="activity-spacer"></span>
             ${joinCount > 0 ? `<span class="activity-joined-count">${joinCount} ${joinCount === 1 ? "persoon" : "personen"}</span>` : ""}
-            <button class="btn-join ${hasJoined ? "joined" : ""}" onclick="joinActivity('${a.id}')">
+            <button class="btn-join ${hasJoined ? "joined" : ""}">
                 ${hasJoined ? "Aangemeld" : "Join"}
             </button>
         </div>
@@ -201,7 +276,7 @@ function activityHTML(a) {
 }
 
 // ── Post actions ──────────────────────────────────────────────────────────
-window.submitPost = async function () {
+async function submitPost() {
     const location    = document.getElementById("compose-location").value.trim();
     const date        = document.getElementById("compose-date").value;
     const category    = document.getElementById("compose-category").value;
@@ -233,9 +308,9 @@ window.submitPost = async function () {
         console.error("submitPost error:", err);
         toast("Plaatsen mislukt. Probeer opnieuw.");
     }
-};
+}
 
-window.joinActivity = async function (id) {
+async function joinActivity(id) {
     const a = activities.find(a => a.id === id);
     if (!a) return;
 
@@ -251,9 +326,9 @@ window.joinActivity = async function (id) {
         console.error("joinActivity error:", err);
         toast("Aanmelden mislukt. Probeer opnieuw.");
     }
-};
+}
 
-window.deleteActivity = async function (id) {
+async function deleteActivity(id) {
     if (!confirm("Activiteit verwijderen?")) return;
     try {
         await deleteDoc(doc(db, "posts", id));
@@ -262,7 +337,7 @@ window.deleteActivity = async function (id) {
         console.error("deleteActivity error:", err);
         toast("Verwijderen mislukt.");
     }
-};
+}
 
 // ── Profile view ──────────────────────────────────────────────────────────
 function renderProfile() {
@@ -295,7 +370,7 @@ function renderProfile() {
 }
 
 // ── User modal ────────────────────────────────────────────────────────────
-window.openUserModal = async function (username) {
+async function openUserModal(username) {
     if (username === user.username) {
         showView("profile");
         return;
@@ -308,10 +383,9 @@ window.openUserModal = async function (username) {
 
         const targetUser = { id: snap.docs[0].id, ...snap.docs[0].data() };
 
-        const mySnap     = await getDoc(doc(db, "users", user.id));
-        const myData     = mySnap.data();
-        const following  = myData.following || [];
-        const isFollowing = following.includes(targetUser.id);
+        const mySnap      = await getDoc(doc(db, "users", user.id));
+        const myData      = mySnap.data();
+        const isFollowing = (myData.following || []).includes(targetUser.id);
 
         const postSnap       = await getDocs(query(collection(db, "posts"), where("username", "==", username)));
         const theirFollowers = (targetUser.followers || []).length;
@@ -326,13 +400,12 @@ window.openUserModal = async function (username) {
         document.getElementById("modal-followers").textContent = theirFollowers;
         document.getElementById("modal-following").textContent = theirFollowing;
 
-        const followBtn   = document.getElementById("modal-follow-btn");
+        const followBtn = document.getElementById("modal-follow-btn");
         followBtn.textContent = isFollowing ? "Volgend" : "Volgen";
         followBtn.className   = "btn-follow" + (isFollowing ? " following" : "");
         followBtn.onclick     = () => toggleFollow(targetUser, followBtn);
 
-        const msgBtn = document.getElementById("modal-msg-btn");
-        msgBtn.onclick = () => {
+        document.getElementById("modal-msg-btn").onclick = () => {
             closeUserModal();
             openConversation(targetUser);
         };
@@ -343,15 +416,11 @@ window.openUserModal = async function (username) {
         console.error("openUserModal error:", err);
         toast("Kon gebruikersprofiel niet laden.");
     }
-};
+}
 
-window.closeUserModal = function () {
+function closeUserModal() {
     document.getElementById("modal-overlay").classList.add("hidden");
-};
-
-document.getElementById("modal-overlay")?.addEventListener("click", function (e) {
-    if (e.target === this) closeUserModal();
-});
+}
 
 // ── Follow / Unfollow ─────────────────────────────────────────────────────
 async function toggleFollow(targetUser, btn) {
@@ -399,10 +468,7 @@ function listenToConversations() {
         conversations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         renderConvList();
 
-        unreadCount = conversations.filter(c => {
-            const unread = c.unread || {};
-            return (unread[user.id] || 0) > 0;
-        }).length;
+        unreadCount = conversations.filter(c => (c.unread?.[user.id] || 0) > 0).length;
         updateUnreadBadge();
     }, (err) => {
         console.error("Conversations listener error:", err);
@@ -421,7 +487,7 @@ function renderConvList() {
         const unread    = (c.unread?.[user.id] || 0) > 0;
         const isActive  = c.id === activeConvId;
         return `
-        <div class="conv-item ${isActive ? "active" : ""}" onclick="selectConversation('${c.id}')">
+        <div class="conv-item ${isActive ? "active" : ""}" data-conv-id="${esc(c.id)}">
             <div class="conv-av" style="background:${esc(otherInfo.color || '#5b6ef5')}">${esc((otherInfo.name || "?")[0])}</div>
             <div class="conv-info">
                 <div class="conv-name">${esc(otherInfo.name || "Onbekend")}</div>
@@ -470,7 +536,7 @@ async function openConversation(targetUser) {
     }
 }
 
-window.selectConversation = function (convId) {
+function selectConversation(convId) {
     activeConvId = convId;
     renderConvList();
 
@@ -486,7 +552,6 @@ window.selectConversation = function (convId) {
     document.getElementById("chat-header-name").textContent   = esc(otherInfo.name || "Onbekend");
     document.getElementById("chat-header-handle").textContent = "@" + esc(otherInfo.username || "");
     document.getElementById("chat-header").style.display      = "flex";
-
     document.getElementById("chat-input-row").style.display   = "flex";
     document.getElementById("chat-placeholder").style.display = "none";
 
@@ -500,12 +565,11 @@ window.selectConversation = function (convId) {
         orderBy("time", "asc")
     );
     msgUnsub = onSnapshot(q, (snap) => {
-        const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderMessages(msgs);
+        renderMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => {
         console.error("Messages listener error:", err);
     });
-};
+}
 
 function renderMessages(msgs) {
     const el = document.getElementById("chat-messages");
@@ -527,7 +591,7 @@ function renderMessages(msgs) {
     el.scrollTop = el.scrollHeight;
 }
 
-window.sendMessage = async function () {
+async function sendMessage() {
     const input = document.getElementById("chat-input");
     const text  = input.value.trim();
     if (!text || !activeConvId) return;
@@ -552,17 +616,10 @@ window.sendMessage = async function () {
         console.error("sendMessage error:", err);
         toast("Bericht versturen mislukt.");
     }
-};
-
-document.getElementById("chat-input")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    }
-});
+}
 
 // ── View switching ────────────────────────────────────────────────────────
-window.showView = function (v) {
+function showView(v) {
     document.querySelectorAll(".view").forEach(el => el.classList.remove("active"));
     document.getElementById("view-" + v)?.classList.add("active");
 
@@ -572,9 +629,9 @@ window.showView = function (v) {
 
     if (v === "profile") renderProfile();
     if (v === "messages") renderConvList();
-};
+}
 
-window.logout = async function () {
+async function logout() {
     try {
         if (msgUnsub)  msgUnsub();
         if (convUnsub) convUnsub();
@@ -585,7 +642,7 @@ window.logout = async function () {
         console.error("logout error:", err);
         toast("Uitloggen mislukt.");
     }
-};
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function timeAgo(ts) {
@@ -611,10 +668,10 @@ function esc(t) {
         .replace(/'/g, "&#039;");
 }
 
-window.toast = function (msg) {
+function toast(msg) {
     const el = document.getElementById("toast");
     el.textContent = msg;
     el.classList.add("show");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => el.classList.remove("show"), 2800);
-};
+}
