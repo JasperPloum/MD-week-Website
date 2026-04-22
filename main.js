@@ -398,18 +398,31 @@ async function toggleFollow(targetUser, btn) {
     }
 }
 
-// ── Conversations ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Conversations
+// ─────────────────────────────────────────────────────────────
+
+function safeOtherId(participants, myId) {
+    // Zoek iemand die niet ik ben
+    let other = participants.find(p => p !== myId);
+    // Als het een self-chat is → gebruik mezelf
+    if (!other) other = myId;
+    return other;
+}
+
 function listenToConversations() {
     const q = query(
         collection(db, "conversations"),
         where("participants", "array-contains", user.id),
         orderBy("lastTime", "desc")
     );
+
     if (convUnsub) convUnsub();
 
     convUnsub = onSnapshot(q, (snap) => {
         conversations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         renderConvList();
+
         unreadCount = conversations.filter(c => (c.unread?.[user.id] || 0) > 0).length;
         updateUnreadBadge();
     }, (err) => {
@@ -419,18 +432,23 @@ function listenToConversations() {
 
 function renderConvList() {
     const el = document.getElementById("conv-items");
+
     if (!conversations.length) {
         el.innerHTML = `<div class="conv-empty">Nog geen berichten.<br>Klik op iemand in de feed om te starten.</div>`;
         return;
     }
+
     el.innerHTML = conversations.map(c => {
-        const otherId   = c.participants.find(p => p !== user.id);
+        const otherId   = safeOtherId(c.participants, user.id);
         const otherInfo = c.participantInfo?.[otherId] || {};
         const unread    = (c.unread?.[user.id] || 0) > 0;
         const isActive  = c.id === activeConvId;
+
         return `
         <div class="conv-item ${isActive ? "active" : ""}" data-conv-id="${esc(c.id)}">
-            <div class="conv-av" style="background:${esc(otherInfo.color || '#5b6ef5')}">${esc((otherInfo.name || "?")[0])}</div>
+            <div class="conv-av" style="background:${esc(otherInfo.color || '#5b6ef5')}">
+                ${esc((otherInfo.name || "?")[0])}
+            </div>
             <div class="conv-info">
                 <div class="conv-name">${esc(otherInfo.name || "Onbekend")}</div>
                 <div class="conv-preview">${esc(c.lastMessage || "Geen berichten nog")}</div>
@@ -442,21 +460,39 @@ function renderConvList() {
 
 async function openConversation(targetUser) {
     showView("messages");
+
+    // Bestaat er al een gesprek?
     const existing = conversations.find(c => c.participants.includes(targetUser.id));
-    if (existing) { selectConversation(existing.id); return; }
+    if (existing) {
+        selectConversation(existing.id);
+        return;
+    }
 
     try {
         const convRef = await addDoc(collection(db, "conversations"), {
             participants: [user.id, targetUser.id],
             participantInfo: {
-                [user.id]: { name: (user.first||"")+" "+(user.last||""), color: user.color, username: user.username },
-                [targetUser.id]: { name: (targetUser.first||"")+" "+(targetUser.last||""), color: targetUser.color, username: targetUser.username }
+                [user.id]: {
+                    name: (user.first||"")+" "+(user.last||""),
+                    color: user.color,
+                    username: user.username
+                },
+                [targetUser.id]: {
+                    name: (targetUser.first||"")+" "+(targetUser.last||""),
+                    color: targetUser.color,
+                    username: targetUser.username
+                }
             },
             lastMessage: "",
-            lastTime:    serverTimestamp(),
-            unread: { [user.id]: 0, [targetUser.id]: 0 }
+            lastTime: serverTimestamp(),
+            unread: {
+                [user.id]: 0,
+                [targetUser.id]: 0
+            }
         });
+
         selectConversation(convRef.id);
+
     } catch (err) {
         console.error("openConversation error:", err);
         toast("Kon geen gesprek starten.");
@@ -470,66 +506,94 @@ function selectConversation(convId) {
     const conv = conversations.find(c => c.id === convId);
     if (!conv) return;
 
-    const otherId   = conv.participants.find(p => p !== user.id);
+    const otherId   = safeOtherId(conv.participants, user.id);
     const otherInfo = conv.participantInfo?.[otherId] || {};
 
-    document.getElementById("chat-header-av").textContent       = esc((otherInfo.name || "?")[0]);
-    document.getElementById("chat-header-av").style.background  = otherInfo.color || "#5b6ef5";
-    document.getElementById("chat-header-name").textContent     = esc(otherInfo.name || "Onbekend");
-    document.getElementById("chat-header-handle").textContent   = "@" + esc(otherInfo.username || "");
-    document.getElementById("chat-header").style.display        = "flex";
-    document.getElementById("chat-input-row").style.display     = "flex";
-    document.getElementById("chat-placeholder").style.display   = "none";
+    // UI vullen
+    document.getElementById("chat-header-av").textContent      = esc((otherInfo.name || "?")[0]);
+    document.getElementById("chat-header-av").style.background = otherInfo.color || "#5b6ef5";
+    document.getElementById("chat-header-name").textContent    = esc(otherInfo.name || "Onbekend");
+    document.getElementById("chat-header-handle").textContent  = "@" + esc(otherInfo.username || "");
+    document.getElementById("chat-header").style.display       = "flex";
+    document.getElementById("chat-input-row").style.display    = "flex";
+    document.getElementById("chat-placeholder").style.display  = "none";
 
-    updateDoc(doc(db, "conversations", convId), { [`unread.${user.id}`]: 0 }).catch(() => {});
+    // Unread resetten
+    updateDoc(doc(db, "conversations", convId), {
+        [`unread.${user.id}`]: 0
+    }).catch(() => {});
 
+    // Messages listener
     if (msgUnsub) msgUnsub();
-    const q = query(collection(db, "conversations", convId, "messages"), orderBy("time", "asc"));
+
+    const q = query(
+        collection(db, "conversations", convId, "messages"),
+        orderBy("time", "asc")
+    );
+
     msgUnsub = onSnapshot(q, (snap) => {
         renderMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => { console.error("Messages listener error:", err); });
+    }, (err) => {
+        console.error("Messages listener error:", err);
+    });
 }
 
 function renderMessages(msgs) {
     const el = document.getElementById("chat-messages");
+
     if (!msgs.length) {
-        el.innerHTML = `<div style="margin:auto;text-align:center;font-size:13px;color:rgba(255,255,255,0.3);padding:2rem">Stuur het eerste bericht!</div>`;
+        el.innerHTML = `
+            <div style="margin:auto;text-align:center;font-size:13px;color:rgba(255,255,255,0.3);padding:2rem">
+                Stuur het eerste bericht!
+            </div>`;
         return;
     }
+
     el.innerHTML = msgs.map(m => {
         const mine = m.senderId === user.id;
         const ts   = m.time?.toMillis ? m.time.toMillis() : (m.time || Date.now());
+
         return `
         <div class="msg-row">
             <div class="msg-bubble ${mine ? "mine" : "theirs"}">${esc(m.text)}</div>
             <span class="msg-time ${mine ? "" : "theirs"}">${timeStr(ts)}</span>
         </div>`;
     }).join("");
+
     el.scrollTop = el.scrollHeight;
 }
 
 async function sendMessage() {
-    const input   = document.getElementById("chat-input");
-    const text    = input.value.trim();
+    const input = document.getElementById("chat-input");
+    const text  = input.value.trim();
     if (!text || !activeConvId) return;
-    input.value   = "";
 
-    const conv    = conversations.find(c => c.id === activeConvId);
-    const otherId = conv?.participants.find(p => p !== user.id);
+    input.value = "";
+
+    const conv = conversations.find(c => c.id === activeConvId);
+    if (!conv) return;
+
+    const otherId = safeOtherId(conv.participants, user.id);
 
     try {
         await addDoc(collection(db, "conversations", activeConvId, "messages"), {
-            senderId: user.id, text, time: serverTimestamp()
+            senderId: user.id,
+            text,
+            time: serverTimestamp()
         });
+
         await updateDoc(doc(db, "conversations", activeConvId), {
-            lastMessage: text, lastTime: serverTimestamp(),
+            lastMessage: text,
+            lastTime: serverTimestamp(),
             [`unread.${otherId}`]: increment(1)
         });
+
     } catch (err) {
         console.error("sendMessage error:", err);
         toast("Bericht versturen mislukt.");
     }
 }
+
 
 // ── View switching ────────────────────────────────────────────────────────
 function showView(v) {
