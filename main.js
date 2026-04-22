@@ -35,86 +35,66 @@ let feedUnsub     = null;
 let toastTimer;
 let unreadCount   = 0;
 
-// ── DOM ready — wire up all static event listeners ────────────────────────
-document.addEventListener("DOMContentLoaded", () => {
+// ── Wire up static event listeners (ES modules are deferred — DOM is ready) ──
+document.querySelectorAll(".sidebar-link[data-view]").forEach(btn => {
+    btn.addEventListener("click", () => showView(btn.dataset.view));
+});
 
-    // Sidebar nav
-    document.querySelectorAll(".sidebar-link[data-view]").forEach(btn => {
-        btn.addEventListener("click", () => showView(btn.dataset.view));
-    });
+document.getElementById("nav-msg-btn")?.addEventListener("click", () => showView("messages"));
+document.getElementById("nav-avatar")?.addEventListener("click",  () => showView("profile"));
+document.getElementById("btn-logout")?.addEventListener("click",  () => logout());
+document.getElementById("btn-post")?.addEventListener("click",    () => submitPost());
+document.getElementById("btn-send")?.addEventListener("click",    () => sendMessage());
 
-    // Nav buttons
-    document.getElementById("nav-msg-btn")?.addEventListener("click", () => showView("messages"));
-    document.getElementById("nav-avatar")?.addEventListener("click", () => showView("profile"));
+document.getElementById("chat-input")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
 
-    // Logout
-    document.getElementById("btn-logout")?.addEventListener("click", logout);
+document.getElementById("modal-close-btn")?.addEventListener("click", () => closeUserModal());
+document.getElementById("modal-overlay")?.addEventListener("click", function (e) {
+    if (e.target === this) closeUserModal();
+});
 
-    // Post button
-    document.getElementById("btn-post")?.addEventListener("click", submitPost);
+// Delegated click — feed list
+document.getElementById("feed-list")?.addEventListener("click", (e) => {
+    const joinBtn = e.target.closest(".btn-join");
+    if (joinBtn) {
+        const card = joinBtn.closest(".activity-card");
+        if (card) joinActivity(card.dataset.id);
+        return;
+    }
+    const deleteBtn = e.target.closest(".activity-delete");
+    if (deleteBtn) {
+        const card = deleteBtn.closest(".activity-card");
+        if (card) deleteActivity(card.dataset.id);
+        return;
+    }
+    const authorEl = e.target.closest(".activity-author-av, .activity-author-name");
+    if (authorEl) {
+        const card = authorEl.closest(".activity-card");
+        if (card) openUserModal(card.dataset.username);
+    }
+});
 
-    // Send message button
-    document.getElementById("btn-send")?.addEventListener("click", sendMessage);
+// Delegated click — profile posts list
+document.getElementById("p-posts-list")?.addEventListener("click", (e) => {
+    const joinBtn = e.target.closest(".btn-join");
+    if (joinBtn) {
+        const card = joinBtn.closest(".activity-card");
+        if (card) joinActivity(card.dataset.id);
+        return;
+    }
+    const deleteBtn = e.target.closest(".activity-delete");
+    if (deleteBtn) {
+        const card = deleteBtn.closest(".activity-card");
+        if (card) deleteActivity(card.dataset.id);
+    }
+});
 
-    // Chat input — Enter key
-    document.getElementById("chat-input")?.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-
-    // Modal close button
-    document.getElementById("modal-close-btn")?.addEventListener("click", closeUserModal);
-
-    // Modal overlay click-outside
-    document.getElementById("modal-overlay")?.addEventListener("click", function (e) {
-        if (e.target === this) closeUserModal();
-    });
-
-    // Feed list — delegated clicks for join, delete, and user avatar
-    document.getElementById("feed-list")?.addEventListener("click", (e) => {
-        const joinBtn = e.target.closest(".btn-join");
-        if (joinBtn) {
-            const card = joinBtn.closest(".activity-card");
-            if (card) joinActivity(card.dataset.id);
-            return;
-        }
-        const deleteBtn = e.target.closest(".activity-delete");
-        if (deleteBtn) {
-            const card = deleteBtn.closest(".activity-card");
-            if (card) deleteActivity(card.dataset.id);
-            return;
-        }
-        const authorEl = e.target.closest(".activity-author-av, .activity-author-name");
-        if (authorEl) {
-            const card = authorEl.closest(".activity-card");
-            if (card) openUserModal(card.dataset.username);
-            return;
-        }
-    });
-
-    // Profile posts list — same delegated clicks
-    document.getElementById("p-posts-list")?.addEventListener("click", (e) => {
-        const joinBtn = e.target.closest(".btn-join");
-        if (joinBtn) {
-            const card = joinBtn.closest(".activity-card");
-            if (card) joinActivity(card.dataset.id);
-            return;
-        }
-        const deleteBtn = e.target.closest(".activity-delete");
-        if (deleteBtn) {
-            const card = deleteBtn.closest(".activity-card");
-            if (card) deleteActivity(card.dataset.id);
-            return;
-        }
-    });
-
-    // Conv list — delegated clicks
-    document.getElementById("conv-items")?.addEventListener("click", (e) => {
-        const item = e.target.closest(".conv-item");
-        if (item) selectConversation(item.dataset.convId);
-    });
+// Delegated click — conversation list
+document.getElementById("conv-items")?.addEventListener("click", (e) => {
+    const item = e.target.closest(".conv-item");
+    if (item) selectConversation(item.dataset.convId);
 });
 
 // ── Boot ──────────────────────────────────────────────────────────────────
@@ -145,7 +125,6 @@ onAuthStateChanged(auth, async (firebaseUser) => {
                 joined:   Date.now()
             });
             snap = await getDoc(userRef);
-            console.log("User document created automatically.");
         }
 
         user = { id: snap.id, ...snap.data() };
@@ -164,65 +143,50 @@ onAuthStateChanged(auth, async (firebaseUser) => {
 
 // ── Nav ───────────────────────────────────────────────────────────────────
 function renderNav() {
-    const av = document.getElementById("nav-avatar");
-    av.textContent      = (user.first || user.username || "?")[0].toUpperCase();
+    const first = user.first || user.username || "?";
+    const av    = document.getElementById("nav-avatar");
+    av.textContent      = first[0].toUpperCase();
     av.style.background = user.color;
 
     const ca = document.getElementById("compose-av");
-    ca.textContent      = (user.first || user.username || "?")[0].toUpperCase();
+    ca.textContent      = first[0].toUpperCase();
     ca.style.background = user.color;
 }
 
 function updateUnreadBadge() {
-    const badge        = document.getElementById("msg-badge");
-    const sidebarBadge = document.getElementById("sidebar-msg-badge");
+    const badge = document.getElementById("msg-badge");
+    if (!badge) return;
     if (unreadCount > 0) {
-        if (badge)        { badge.textContent = unreadCount; badge.style.display = "flex"; }
-        if (sidebarBadge) { sidebarBadge.textContent = unreadCount; sidebarBadge.style.display = "inline-block"; }
+        badge.textContent  = unreadCount;
+        badge.style.display = "flex";
     } else {
-        if (badge)        badge.style.display = "none";
-        if (sidebarBadge) sidebarBadge.style.display = "none";
+        badge.style.display = "none";
     }
 }
 
 // ── Feed listener ─────────────────────────────────────────────────────────
 function listenToFeed() {
-    const q = query(
-        collection(db, "posts"),
-        orderBy("time", "desc"),
-        limit(50)
-    );
-
+    const q = query(collection(db, "posts"), orderBy("time", "desc"), limit(50));
     if (feedUnsub) feedUnsub();
 
-    feedUnsub = onSnapshot(
-        q,
-        (snap) => {
-            activities = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            renderFeed();
-
-            const active = document.querySelector(".view.active");
-            if (active?.id === "view-profile") renderProfile();
-        },
-        (err) => {
-            console.error("Feed listener error:", err);
-            toast("Feed kon niet geladen worden. Controleer je verbinding.");
-        }
-    );
+    feedUnsub = onSnapshot(q, (snap) => {
+        activities = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderFeed();
+        const active = document.querySelector(".view.active");
+        if (active?.id === "view-profile") renderProfile();
+    }, (err) => {
+        console.error("Feed error:", err);
+        toast("Feed kon niet geladen worden.");
+    });
 }
 
 // ── Feed render ───────────────────────────────────────────────────────────
 function renderFeed() {
     const list = document.getElementById("feed-list");
-
     if (!activities.length) {
-        list.innerHTML = `
-            <div class="empty" style="color:rgba(26,31,78,0.5);padding:2rem 0;text-align:center">
-                Nog geen activiteiten. Wees de eerste!
-            </div>`;
+        list.innerHTML = `<div style="color:rgba(26,31,78,0.5);padding:2rem 0;text-align:center">Nog geen activiteiten. Wees de eerste!</div>`;
         return;
     }
-
     list.innerHTML = activities.map(activityHTML).join("");
 }
 
@@ -231,20 +195,18 @@ function activityHTML(a) {
     const isOwner   = user && a.username === user.username;
     const joinedBy  = a.joinedBy || [];
     const hasJoined = joinedBy.includes(user.username);
+    const joinCount = joinedBy.length;
 
     let dateObj = null;
     if (a.date) dateObj = new Date(a.date + "T00:00:00");
-    const dayNum    = dateObj ? dateObj.getDate() : "?";
-    const monthStr  = dateObj ? dateObj.toLocaleDateString("nl-NL", { month: "short" }) : "";
-    const joinCount = joinedBy.length;
-
-    const ts = a.time?.toMillis ? a.time.toMillis() : a.time;
+    const dayNum   = dateObj ? dateObj.getDate() : "?";
+    const monthStr = dateObj ? dateObj.toLocaleDateString("nl-NL", { month: "short" }) : "";
+    const ts       = a.time?.toMillis ? a.time.toMillis() : a.time;
 
     const deleteBtn = isOwner
         ? `<button class="activity-delete" title="Verwijder">
                <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-           </button>`
-        : "";
+           </button>` : "";
 
     return `
     <div class="activity-card" data-id="${esc(a.id)}" data-username="${esc(a.username)}">
@@ -268,9 +230,7 @@ function activityHTML(a) {
             <span class="activity-tag">${esc(a.category || "Activiteit")}</span>
             <span class="activity-spacer"></span>
             ${joinCount > 0 ? `<span class="activity-joined-count">${joinCount} ${joinCount === 1 ? "persoon" : "personen"}</span>` : ""}
-            <button class="btn-join ${hasJoined ? "joined" : ""}">
-                ${hasJoined ? "Aangemeld" : "Join"}
-            </button>
+            <button class="btn-join ${hasJoined ? "joined" : ""}">${hasJoined ? "Aangemeld" : "Join"}</button>
         </div>
     </div>`;
 }
@@ -302,7 +262,6 @@ async function submitPost() {
         document.getElementById("compose-date").value        = "";
         document.getElementById("compose-description").value = "";
         document.getElementById("compose-category").value    = "";
-
         toast("Activiteit geplaatst! 🎉");
     } catch (err) {
         console.error("submitPost error:", err);
@@ -313,10 +272,7 @@ async function submitPost() {
 async function joinActivity(id) {
     const a = activities.find(a => a.id === id);
     if (!a) return;
-
-    const joinedBy  = a.joinedBy || [];
-    const hasJoined = joinedBy.includes(user.username);
-
+    const hasJoined = (a.joinedBy || []).includes(user.username);
     try {
         await updateDoc(doc(db, "posts", id), {
             joinedBy: hasJoined ? arrayRemove(user.username) : arrayUnion(user.username)
@@ -324,7 +280,7 @@ async function joinActivity(id) {
         toast(hasJoined ? "Afgemeld." : "Je bent aangemeld! 👋");
     } catch (err) {
         console.error("joinActivity error:", err);
-        toast("Aanmelden mislukt. Probeer opnieuw.");
+        toast("Aanmelden mislukt.");
     }
 }
 
@@ -341,27 +297,25 @@ async function deleteActivity(id) {
 
 // ── Profile view ──────────────────────────────────────────────────────────
 function renderProfile() {
-    const firstName = user.first || user.username || "?";
-    document.getElementById("p-av").textContent      = firstName[0].toUpperCase();
+    const first = user.first || user.username || "?";
+    document.getElementById("p-av").textContent      = first[0].toUpperCase();
     document.getElementById("p-av").style.background = user.color;
     document.getElementById("p-name").textContent    = (user.first || "") + " " + (user.last || "");
     document.getElementById("p-handle").textContent  = "@" + user.username;
     document.getElementById("p-joined").textContent  = user.joined
         ? new Date(user.joined).toLocaleDateString("nl-NL") : "Onlangs";
 
-    const followers = (user.followers || []).length;
-    const following = (user.following || []).length;
-    document.getElementById("p-followers").textContent = followers;
-    document.getElementById("p-following").textContent = following;
+    document.getElementById("p-followers").textContent = (user.followers || []).length;
+    document.getElementById("p-following").textContent = (user.following || []).length;
 
-    const mine = activities.filter(a => a.username === user.username);
-    document.getElementById("p-posts").textContent = mine.length;
-
+    const mine  = activities.filter(a => a.username === user.username);
     const list  = document.getElementById("p-posts-list");
     const empty = document.getElementById("p-empty");
 
+    document.getElementById("p-posts").textContent = mine.length;
+
     if (!mine.length) {
-        list.innerHTML = "";
+        list.innerHTML      = "";
         empty.style.display = "block";
         return;
     }
@@ -371,36 +325,30 @@ function renderProfile() {
 
 // ── User modal ────────────────────────────────────────────────────────────
 async function openUserModal(username) {
-    if (username === user.username) {
-        showView("profile");
-        return;
-    }
+    if (username === user.username) { showView("profile"); return; }
 
     try {
         const q    = query(collection(db, "users"), where("username", "==", username));
         const snap = await getDocs(q);
         if (snap.empty) { toast("Gebruiker niet gevonden."); return; }
 
-        const targetUser = { id: snap.docs[0].id, ...snap.docs[0].data() };
-
-        const mySnap      = await getDoc(doc(db, "users", user.id));
-        const myData      = mySnap.data();
-        const isFollowing = (myData.following || []).includes(targetUser.id);
-
+        const targetUser     = { id: snap.docs[0].id, ...snap.docs[0].data() };
+        const mySnap         = await getDoc(doc(db, "users", user.id));
+        const isFollowing    = (mySnap.data().following || []).includes(targetUser.id);
         const postSnap       = await getDocs(query(collection(db, "posts"), where("username", "==", username)));
         const theirFollowers = (targetUser.followers || []).length;
         const theirFollowing = (targetUser.following || []).length;
 
-        const targetFirst = targetUser.first || targetUser.username || "?";
-        document.getElementById("modal-av").textContent      = targetFirst[0].toUpperCase();
-        document.getElementById("modal-av").style.background = targetUser.color;
-        document.getElementById("modal-name").textContent    = (targetUser.first || "") + " " + (targetUser.last || "");
-        document.getElementById("modal-handle").textContent  = "@" + targetUser.username;
-        document.getElementById("modal-posts").textContent   = postSnap.size;
-        document.getElementById("modal-followers").textContent = theirFollowers;
-        document.getElementById("modal-following").textContent = theirFollowing;
+        const tf = targetUser.first || targetUser.username || "?";
+        document.getElementById("modal-av").textContent         = tf[0].toUpperCase();
+        document.getElementById("modal-av").style.background    = targetUser.color;
+        document.getElementById("modal-name").textContent       = (targetUser.first || "") + " " + (targetUser.last || "");
+        document.getElementById("modal-handle").textContent     = "@" + targetUser.username;
+        document.getElementById("modal-posts").textContent      = postSnap.size;
+        document.getElementById("modal-followers").textContent  = theirFollowers;
+        document.getElementById("modal-following").textContent  = theirFollowing;
 
-        const followBtn = document.getElementById("modal-follow-btn");
+        const followBtn       = document.getElementById("modal-follow-btn");
         followBtn.textContent = isFollowing ? "Volgend" : "Volgen";
         followBtn.className   = "btn-follow" + (isFollowing ? " following" : "");
         followBtn.onclick     = () => toggleFollow(targetUser, followBtn);
@@ -411,7 +359,6 @@ async function openUserModal(username) {
         };
 
         document.getElementById("modal-overlay").classList.remove("hidden");
-
     } catch (err) {
         console.error("openUserModal error:", err);
         toast("Kon gebruikersprofiel niet laden.");
@@ -424,8 +371,8 @@ function closeUserModal() {
 
 // ── Follow / Unfollow ─────────────────────────────────────────────────────
 async function toggleFollow(targetUser, btn) {
-    const myRef    = doc(db, "users", user.id);
-    const theirRef = doc(db, "users", targetUser.id);
+    const myRef       = doc(db, "users", user.id);
+    const theirRef    = doc(db, "users", targetUser.id);
     const isFollowing = btn.classList.contains("following");
 
     try {
@@ -442,15 +389,12 @@ async function toggleFollow(targetUser, btn) {
             btn.classList.add("following");
             toast(`Je volgt nu @${targetUser.username}!`);
         }
-
         const mySnap = await getDoc(myRef);
         user = { id: user.id, ...mySnap.data() };
-        if (document.getElementById("view-profile").classList.contains("active")) {
-            renderProfile();
-        }
+        if (document.getElementById("view-profile").classList.contains("active")) renderProfile();
     } catch (err) {
         console.error("toggleFollow error:", err);
-        toast("Actie mislukt. Probeer opnieuw.");
+        toast("Actie mislukt.");
     }
 }
 
@@ -461,13 +405,11 @@ function listenToConversations() {
         where("participants", "array-contains", user.id),
         orderBy("lastTime", "desc")
     );
-
     if (convUnsub) convUnsub();
 
     convUnsub = onSnapshot(q, (snap) => {
         conversations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         renderConvList();
-
         unreadCount = conversations.filter(c => (c.unread?.[user.id] || 0) > 0).length;
         updateUnreadBadge();
     }, (err) => {
@@ -500,34 +442,19 @@ function renderConvList() {
 
 async function openConversation(targetUser) {
     showView("messages");
-
     const existing = conversations.find(c => c.participants.includes(targetUser.id));
-    if (existing) {
-        selectConversation(existing.id);
-        return;
-    }
+    if (existing) { selectConversation(existing.id); return; }
 
     try {
         const convRef = await addDoc(collection(db, "conversations"), {
             participants: [user.id, targetUser.id],
             participantInfo: {
-                [user.id]: {
-                    name:     (user.first || "") + " " + (user.last || ""),
-                    color:    user.color,
-                    username: user.username
-                },
-                [targetUser.id]: {
-                    name:     (targetUser.first || "") + " " + (targetUser.last || ""),
-                    color:    targetUser.color,
-                    username: targetUser.username
-                }
+                [user.id]: { name: (user.first||"")+" "+(user.last||""), color: user.color, username: user.username },
+                [targetUser.id]: { name: (targetUser.first||"")+" "+(targetUser.last||""), color: targetUser.color, username: targetUser.username }
             },
             lastMessage: "",
             lastTime:    serverTimestamp(),
-            unread: {
-                [user.id]:       0,
-                [targetUser.id]: 0
-            }
+            unread: { [user.id]: 0, [targetUser.id]: 0 }
         });
         selectConversation(convRef.id);
     } catch (err) {
@@ -546,37 +473,27 @@ function selectConversation(convId) {
     const otherId   = conv.participants.find(p => p !== user.id);
     const otherInfo = conv.participantInfo?.[otherId] || {};
 
-    const headerAv = document.getElementById("chat-header-av");
-    headerAv.textContent       = esc((otherInfo.name || "?")[0]);
-    headerAv.style.background  = otherInfo.color || "#5b6ef5";
-    document.getElementById("chat-header-name").textContent   = esc(otherInfo.name || "Onbekend");
-    document.getElementById("chat-header-handle").textContent = "@" + esc(otherInfo.username || "");
-    document.getElementById("chat-header").style.display      = "flex";
-    document.getElementById("chat-input-row").style.display   = "flex";
-    document.getElementById("chat-placeholder").style.display = "none";
+    document.getElementById("chat-header-av").textContent       = esc((otherInfo.name || "?")[0]);
+    document.getElementById("chat-header-av").style.background  = otherInfo.color || "#5b6ef5";
+    document.getElementById("chat-header-name").textContent     = esc(otherInfo.name || "Onbekend");
+    document.getElementById("chat-header-handle").textContent   = "@" + esc(otherInfo.username || "");
+    document.getElementById("chat-header").style.display        = "flex";
+    document.getElementById("chat-input-row").style.display     = "flex";
+    document.getElementById("chat-placeholder").style.display   = "none";
 
-    updateDoc(doc(db, "conversations", convId), {
-        [`unread.${user.id}`]: 0
-    }).catch(() => {});
+    updateDoc(doc(db, "conversations", convId), { [`unread.${user.id}`]: 0 }).catch(() => {});
 
     if (msgUnsub) msgUnsub();
-    const q = query(
-        collection(db, "conversations", convId, "messages"),
-        orderBy("time", "asc")
-    );
+    const q = query(collection(db, "conversations", convId, "messages"), orderBy("time", "asc"));
     msgUnsub = onSnapshot(q, (snap) => {
         renderMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => {
-        console.error("Messages listener error:", err);
-    });
+    }, (err) => { console.error("Messages listener error:", err); });
 }
 
 function renderMessages(msgs) {
     const el = document.getElementById("chat-messages");
     if (!msgs.length) {
-        el.innerHTML = `<div style="margin:auto;text-align:center;font-size:13px;color:rgba(255,255,255,0.3);padding:2rem">
-            Stuur het eerste bericht!
-        </div>`;
+        el.innerHTML = `<div style="margin:auto;text-align:center;font-size:13px;color:rgba(255,255,255,0.3);padding:2rem">Stuur het eerste bericht!</div>`;
         return;
     }
     el.innerHTML = msgs.map(m => {
@@ -592,24 +509,20 @@ function renderMessages(msgs) {
 }
 
 async function sendMessage() {
-    const input = document.getElementById("chat-input");
-    const text  = input.value.trim();
+    const input   = document.getElementById("chat-input");
+    const text    = input.value.trim();
     if (!text || !activeConvId) return;
-
-    input.value = "";
+    input.value   = "";
 
     const conv    = conversations.find(c => c.id === activeConvId);
     const otherId = conv?.participants.find(p => p !== user.id);
 
     try {
         await addDoc(collection(db, "conversations", activeConvId, "messages"), {
-            senderId: user.id,
-            text,
-            time: serverTimestamp()
+            senderId: user.id, text, time: serverTimestamp()
         });
         await updateDoc(doc(db, "conversations", activeConvId), {
-            lastMessage:           text,
-            lastTime:              serverTimestamp(),
+            lastMessage: text, lastTime: serverTimestamp(),
             [`unread.${otherId}`]: increment(1)
         });
     } catch (err) {
@@ -622,11 +535,9 @@ async function sendMessage() {
 function showView(v) {
     document.querySelectorAll(".view").forEach(el => el.classList.remove("active"));
     document.getElementById("view-" + v)?.classList.add("active");
-
     document.getElementById("sl-home")?.classList.toggle("active",     v === "feed");
     document.getElementById("sl-profile")?.classList.toggle("active",  v === "profile");
     document.getElementById("sl-messages")?.classList.toggle("active", v === "messages");
-
     if (v === "profile") renderProfile();
     if (v === "messages") renderConvList();
 }
