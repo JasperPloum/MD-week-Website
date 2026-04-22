@@ -195,6 +195,7 @@ select.compose-input option{background:#1e2d7a;color:#fff}
     background:#2b3990;border:1px solid rgba(255,255,255,0.1);
     border-radius:var(--r);overflow:hidden;
     transition:border-color .18s,box-shadow .18s;display:flex;flex-direction:column;
+    margin-bottom:10px;
 }
 .activity-card:hover{border-color:rgba(255,255,255,0.22);box-shadow:0 4px 24px rgba(0,0,0,.25)}
 .activity-card-top{
