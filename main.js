@@ -104,40 +104,66 @@ function updateUnreadBadge() {
     }
 }
 
-// ── Feed — ALL posts, no user filter ─────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// FEED LISTENER — laad ALLE posts realtime, geen user-filter
+// ─────────────────────────────────────────────────────────────
+
+let feedUnsub = null;
+let activities = [];
+
 function listenToFeed() {
-    // Query ALL posts ordered by time — every logged-in user sees everything
+    // Query: alle posts, gesorteerd op tijd (nieuwste bovenaan)
     const q = query(
         collection(db, "posts"),
         orderBy("time", "desc"),
         limit(50)
     );
 
+    // Stop oude listener als die nog actief is
     if (feedUnsub) feedUnsub();
 
-    feedUnsub = onSnapshot(q, (snap) => {
-        activities = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderFeed();
+    // Start realtime listener
+    feedUnsub = onSnapshot(
+        q,
+        (snap) => {
+            activities = snap.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
 
-        // Refresh profile view if it's open (post count may change)
-        const active = document.querySelector(".view.active");
-        if (active?.id === "view-profile") renderProfile();
-    }, (err) => {
-        console.error("Feed listener error:", err);
-        toast("Feed kon niet geladen worden. Controleer je verbinding.");
-    });
+            renderFeed();
+
+            // Als profiel open staat → update post count
+            const active = document.querySelector(".view.active");
+            if (active?.id === "view-profile") {
+                renderProfile();
+            }
+        },
+        (err) => {
+            console.error("Feed listener error:", err);
+            toast("Feed kon niet geladen worden. Controleer je verbinding.");
+        }
+    );
 }
+
+// ─────────────────────────────────────────────────────────────
+// FEED RENDER — bouw de HTML lijst van activiteiten
+// ─────────────────────────────────────────────────────────────
 
 function renderFeed() {
     const list = document.getElementById("feed-list");
+
     if (!activities.length) {
-        list.innerHTML = `<div class="empty" style="color:rgba(26,31,78,0.5);padding:2rem 0;text-align:center">
-            Nog geen activiteiten. Wees de eerste!
-        </div>`;
+        list.innerHTML = `
+            <div class="empty" style="color:rgba(26,31,78,0.5);padding:2rem 0;text-align:center">
+                Nog geen activiteiten. Wees de eerste!
+            </div>`;
         return;
     }
+
     list.innerHTML = activities.map(activityHTML).join("");
 }
+
 
 // ── Activity card HTML ────────────────────────────────────────────────────
 function activityHTML(a) {
