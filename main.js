@@ -56,16 +56,19 @@ onAuthStateChanged(auth, async (firebaseUser) => {
         if (!snap.exists()) {
             // User document missing — create it automatically
             const userRef = doc(db, "users", firebaseUser.uid);
+            const fallbackName = firebaseUser.email.split("@")[0];
 
             await setDoc(userRef, {
-                username: firebaseUser.email.split("@")[0],
-                color: "#5b6ef5",
-                joined: Date.now()
+                username: fallbackName,
+                first:    fallbackName,
+                last:     "",
+                color:    "#5b6ef5",
+                joined:   Date.now()
             });
 
+            snap = await getDoc(userRef);
             console.log("User document created automatically.");
         }
-
 
         user = { id: snap.id, ...snap.data() };
         document.body.style.opacity = "1";
@@ -84,11 +87,11 @@ onAuthStateChanged(auth, async (firebaseUser) => {
 // ── Nav ───────────────────────────────────────────────────────────────────
 function renderNav() {
     const av = document.getElementById("nav-avatar");
-    av.textContent   = user.first[0].toUpperCase();
+    av.textContent      = (user.first || user.username || "?")[0].toUpperCase();
     av.style.background = user.color;
 
     const ca = document.getElementById("compose-av");
-    ca.textContent   = user.first[0].toUpperCase();
+    ca.textContent      = (user.first || user.username || "?")[0].toUpperCase();
     ca.style.background = user.color;
 }
 
@@ -104,36 +107,22 @@ function updateUnreadBadge() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────
-// FEED LISTENER — laad ALLE posts realtime, geen user-filter
-// ─────────────────────────────────────────────────────────────
-
-let feedUnsub = null;
-let activities = [];
-
+// ── Feed listener ─────────────────────────────────────────────────────────
 function listenToFeed() {
-    // Query: alle posts, gesorteerd op tijd (nieuwste bovenaan)
     const q = query(
         collection(db, "posts"),
         orderBy("time", "desc"),
         limit(50)
     );
 
-    // Stop oude listener als die nog actief is
     if (feedUnsub) feedUnsub();
 
-    // Start realtime listener
     feedUnsub = onSnapshot(
         q,
         (snap) => {
-            activities = snap.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-
+            activities = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             renderFeed();
 
-            // Als profiel open staat → update post count
             const active = document.querySelector(".view.active");
             if (active?.id === "view-profile") {
                 renderProfile();
@@ -146,10 +135,7 @@ function listenToFeed() {
     );
 }
 
-// ─────────────────────────────────────────────────────────────
-// FEED RENDER — bouw de HTML lijst van activiteiten
-// ─────────────────────────────────────────────────────────────
-
+// ── Feed render ───────────────────────────────────────────────────────────
 function renderFeed() {
     const list = document.getElementById("feed-list");
 
@@ -164,17 +150,16 @@ function renderFeed() {
     list.innerHTML = activities.map(activityHTML).join("");
 }
 
-
 // ── Activity card HTML ────────────────────────────────────────────────────
 function activityHTML(a) {
-    const isOwner  = user && a.username === user.username;
-    const joinedBy = a.joinedBy || [];
+    const isOwner   = user && a.username === user.username;
+    const joinedBy  = a.joinedBy || [];
     const hasJoined = joinedBy.includes(user.username);
 
     let dateObj = null;
     if (a.date) dateObj = new Date(a.date + "T00:00:00");
-    const dayNum    = dateObj ? dateObj.getDate() : "?";
-    const monthStr  = dateObj ? dateObj.toLocaleDateString("nl-NL", { month: "short" }) : "";
+    const dayNum   = dateObj ? dateObj.getDate() : "?";
+    const monthStr = dateObj ? dateObj.toLocaleDateString("nl-NL", { month: "short" }) : "";
     const joinCount = joinedBy.length;
 
     const ts = a.time?.toMillis ? a.time.toMillis() : a.time;
@@ -188,7 +173,7 @@ function activityHTML(a) {
     <div class="activity-card" id="act-${a.id}">
         <div class="activity-author-row">
             <div class="activity-author-av" style="background:${esc(a.color || '#5b6ef5')}"
-                onclick="openUserModal('${esc(a.username)}')">${esc(a.name[0])}</div>
+                onclick="openUserModal('${esc(a.username)}')">${esc((a.name || "?")[0])}</div>
             <span class="activity-author-name"
                 onclick="openUserModal('${esc(a.username)}')">${esc(a.name)} · @${esc(a.username)} · ${timeAgo(ts)}</span>
             ${deleteBtn}
@@ -228,7 +213,7 @@ window.submitPost = async function () {
     try {
         await addDoc(collection(db, "posts"), {
             username:    user.username,
-            name:        user.first + " " + user.last,
+            name:        (user.first || "") + " " + (user.last || ""),
             color:       user.color,
             location,
             date,
@@ -281,9 +266,10 @@ window.deleteActivity = async function (id) {
 
 // ── Profile view ──────────────────────────────────────────────────────────
 function renderProfile() {
-    document.getElementById("p-av").textContent      = user.first[0].toUpperCase();
+    const firstName = user.first || user.username || "?";
+    document.getElementById("p-av").textContent      = firstName[0].toUpperCase();
     document.getElementById("p-av").style.background = user.color;
-    document.getElementById("p-name").textContent    = user.first + " " + user.last;
+    document.getElementById("p-name").textContent    = (user.first || "") + " " + (user.last || "");
     document.getElementById("p-handle").textContent  = "@" + user.username;
     document.getElementById("p-joined").textContent  = user.joined
         ? new Date(user.joined).toLocaleDateString("nl-NL") : "Onlangs";
@@ -310,7 +296,6 @@ function renderProfile() {
 
 // ── User modal ────────────────────────────────────────────────────────────
 window.openUserModal = async function (username) {
-    // Clicking your own avatar goes to profile view
     if (username === user.username) {
         showView("profile");
         return;
@@ -323,19 +308,19 @@ window.openUserModal = async function (username) {
 
         const targetUser = { id: snap.docs[0].id, ...snap.docs[0].data() };
 
-        // Fresh read of MY data so follow state is always accurate
-        const mySnap  = await getDoc(doc(db, "users", user.id));
-        const myData  = mySnap.data();
+        const mySnap     = await getDoc(doc(db, "users", user.id));
+        const myData     = mySnap.data();
         const following  = myData.following || [];
         const isFollowing = following.includes(targetUser.id);
 
-        const postSnap     = await getDocs(query(collection(db, "posts"), where("username", "==", username)));
+        const postSnap       = await getDocs(query(collection(db, "posts"), where("username", "==", username)));
         const theirFollowers = (targetUser.followers || []).length;
         const theirFollowing = (targetUser.following || []).length;
 
-        document.getElementById("modal-av").textContent      = targetUser.first[0].toUpperCase();
+        const targetFirst = targetUser.first || targetUser.username || "?";
+        document.getElementById("modal-av").textContent      = targetFirst[0].toUpperCase();
         document.getElementById("modal-av").style.background = targetUser.color;
-        document.getElementById("modal-name").textContent    = targetUser.first + " " + targetUser.last;
+        document.getElementById("modal-name").textContent    = (targetUser.first || "") + " " + (targetUser.last || "");
         document.getElementById("modal-handle").textContent  = "@" + targetUser.username;
         document.getElementById("modal-posts").textContent   = postSnap.size;
         document.getElementById("modal-followers").textContent = theirFollowers;
@@ -389,7 +374,6 @@ async function toggleFollow(targetUser, btn) {
             toast(`Je volgt nu @${targetUser.username}!`);
         }
 
-        // Refresh local user state
         const mySnap = await getDoc(myRef);
         user = { id: user.id, ...mySnap.data() };
         if (document.getElementById("view-profile").classList.contains("active")) {
@@ -451,25 +435,23 @@ function renderConvList() {
 async function openConversation(targetUser) {
     showView("messages");
 
-    // Check if conversation already exists
     const existing = conversations.find(c => c.participants.includes(targetUser.id));
     if (existing) {
         selectConversation(existing.id);
         return;
     }
 
-    // Create new conversation document
     try {
         const convRef = await addDoc(collection(db, "conversations"), {
             participants: [user.id, targetUser.id],
             participantInfo: {
                 [user.id]: {
-                    name:     user.first + " " + user.last,
+                    name:     (user.first || "") + " " + (user.last || ""),
                     color:    user.color,
                     username: user.username
                 },
                 [targetUser.id]: {
-                    name:     targetUser.first + " " + targetUser.last,
+                    name:     (targetUser.first || "") + " " + (targetUser.last || ""),
                     color:    targetUser.color,
                     username: targetUser.username
                 }
@@ -498,7 +480,6 @@ window.selectConversation = function (convId) {
     const otherId   = conv.participants.find(p => p !== user.id);
     const otherInfo = conv.participantInfo?.[otherId] || {};
 
-    // Update chat header
     const headerAv = document.getElementById("chat-header-av");
     headerAv.textContent       = esc((otherInfo.name || "?")[0]);
     headerAv.style.background  = otherInfo.color || "#5b6ef5";
@@ -509,12 +490,10 @@ window.selectConversation = function (convId) {
     document.getElementById("chat-input-row").style.display   = "flex";
     document.getElementById("chat-placeholder").style.display = "none";
 
-    // Mark as read
     updateDoc(doc(db, "conversations", convId), {
         [`unread.${user.id}`]: 0
     }).catch(() => {});
 
-    // Subscribe to messages
     if (msgUnsub) msgUnsub();
     const q = query(
         collection(db, "conversations", convId, "messages"),
@@ -565,8 +544,8 @@ window.sendMessage = async function () {
             time: serverTimestamp()
         });
         await updateDoc(doc(db, "conversations", activeConvId), {
-            lastMessage:          text,
-            lastTime:             serverTimestamp(),
+            lastMessage:           text,
+            lastTime:              serverTimestamp(),
             [`unread.${otherId}`]: increment(1)
         });
     } catch (err) {
