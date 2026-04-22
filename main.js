@@ -54,11 +54,18 @@ onAuthStateChanged(auth, async (firebaseUser) => {
         }
 
         if (!snap.exists()) {
-            // User document missing — sign out and redirect
-            await signOut(auth);
-            window.location.replace("index.html");
-            return;
+            // User document missing — create it automatically
+            const userRef = doc(db, "users", firebaseUser.uid);
+
+            await setDoc(userRef, {
+                username: firebaseUser.email.split("@")[0],
+                color: "#5b6ef5",
+                joined: Date.now()
+            });
+
+            console.log("User document created automatically.");
         }
+
 
         user = { id: snap.id, ...snap.data() };
         document.body.style.opacity = "1";
