@@ -4,7 +4,7 @@ import {
     getFirestore, doc, getDoc, getDocs, setDoc,
     collection, addDoc, query, orderBy, where,
     onSnapshot, updateDoc, deleteDoc,
-    serverTimestamp, arrayUnion, arrayRemove, limit
+    serverTimestamp, arrayUnion, arrayRemove, limit, increment
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import {
     getAuth, onAuthStateChanged, signOut
@@ -41,24 +41,39 @@ onAuthStateChanged(auth, async (firebaseUser) => {
         return;
     }
     try {
-        const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+        // Show a loading indicator while we wait for Firestore
+        document.body.style.opacity = "0.4";
+
+        let snap = await getDoc(doc(db, "users", firebaseUser.uid));
+
+        // If not found yet, wait briefly and retry once —
+        // prevents a redirect loop when the write hasn't propagated yet
+        if (!snap.exists()) {
+            await new Promise(r => setTimeout(r, 800));
+            snap = await getDoc(doc(db, "users", firebaseUser.uid));
+        }
+
         if (!snap.exists()) {
             window.location.replace("index.html");
             return;
         }
+
         user = { id: snap.id, ...snap.data() };
+        document.body.style.opacity = "1";
         renderNav();
         listenToFeed();
         listenToConversations();
     } catch (err) {
         console.error(err);
+        document.body.style.opacity = "1";
         toast("Er ging iets mis bij het laden van je profiel.");
     }
 });
 
 // ── Feed ──────────────────────────────────────────────────────────────────
 function listenToFeed() {
-    const q = query(collection(db, "posts"), orderBy("time", "desc"));
+    // Limit to 20 most recent posts to avoid loading the entire database
+    const q = query(collection(db, "posts"), orderBy("time", "desc"), limit(20));
     onSnapshot(q, (snap) => {
         activities = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         renderFeed();
@@ -158,7 +173,6 @@ function renderProfile() {
     document.getElementById("p-joined").textContent = user.joined
         ? new Date(user.joined).toLocaleDateString() : "Recently";
 
-    // Follower / following counts from user doc
     const followers = (user.followers || []).length;
     const following = (user.following || []).length;
     document.getElementById("p-followers").textContent = followers;
@@ -176,31 +190,26 @@ function renderProfile() {
 
 // ── User modal ────────────────────────────────────────────────────────────
 window.openUserModal = async function (username) {
-    // Don't open modal for own profile — go to profile view instead
     if (username === user.username) {
         showView("profile");
         return;
     }
 
-    // Fetch the user from Firestore by username
     const q = query(collection(db, "users"), where("username", "==", username));
     const snap = await getDocs(q);
     if (snap.empty) { toast("Gebruiker niet gevonden."); return; }
     const targetUser = { id: snap.docs[0].id, ...snap.docs[0].data() };
 
-    // Check if we follow them (stored on our own user doc)
     const mySnap = await getDoc(doc(db, "users", user.id));
     const myData = mySnap.data();
     const following = myData.following || [];
     const isFollowing = following.includes(targetUser.id);
 
-    // Count their posts
     const postSnap = await getDocs(query(collection(db, "posts"), where("username", "==", username)));
     const postCount = postSnap.size;
     const theirFollowers = (targetUser.followers || []).length;
     const theirFollowing = (targetUser.following || []).length;
 
-    // Build modal
     const overlay = document.getElementById("modal-overlay");
     document.getElementById("modal-av").textContent     = targetUser.first[0].toUpperCase();
     document.getElementById("modal-av").style.background = targetUser.color;
@@ -228,7 +237,6 @@ window.closeUserModal = function () {
     document.getElementById("modal-overlay").classList.add("hidden");
 };
 
-// Close on backdrop click
 document.getElementById("modal-overlay")?.addEventListener("click", function (e) {
     if (e.target === this) closeUserModal();
 });
@@ -253,7 +261,6 @@ async function toggleFollow(targetUser, btn) {
             btn.classList.add("following");
             toast(`Je volgt nu @${targetUser.username}!`);
         }
-        // Refresh local user state for profile stats
         const mySnap = await getDoc(myRef);
         user = { id: user.id, ...mySnap.data() };
         if (document.getElementById("view-profile").classList.contains("active")) {
@@ -267,7 +274,6 @@ async function toggleFollow(targetUser, btn) {
 
 // ── Conversations ─────────────────────────────────────────────────────────
 function listenToConversations() {
-    // Conversations where current user is a participant
     const q = query(
         collection(db, "conversations"),
         where("participants", "array-contains", user.id),
@@ -277,7 +283,6 @@ function listenToConversations() {
     convUnsub = onSnapshot(q, (snap) => {
         conversations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         renderConvList();
-        // Count unread
         unreadCount = conversations.filter(c => {
             const unread = c.unread || {};
             return (unread[user.id] || 0) > 0;
@@ -309,18 +314,15 @@ function renderConvList() {
     }).join("");
 }
 
-// Open or create a conversation with a target user
 async function openConversation(targetUser) {
     showView("messages");
 
-    // Check if conversation already exists
     const existing = conversations.find(c => c.participants.includes(targetUser.id));
     if (existing) {
         selectConversation(existing.id);
         return;
     }
 
-    // Create new conversation document
     try {
         const convRef = await addDoc(collection(db, "conversations"), {
             participants: [user.id, targetUser.id],
@@ -349,23 +351,19 @@ window.selectConversation = function (convId) {
     const otherId   = conv.participants.find(p => p !== user.id);
     const otherInfo = conv.participantInfo?.[otherId] || {};
 
-    // Update chat header
     const headerAv = document.getElementById("chat-header-av");
     headerAv.textContent    = (otherInfo.name || "?")[0];
     headerAv.style.background = otherInfo.color || "#5b6ef5";
     document.getElementById("chat-header-name").textContent   = otherInfo.name || "Onbekend";
     document.getElementById("chat-header-handle").textContent = "@" + (otherInfo.username || "");
 
-    // Show input row
     document.getElementById("chat-input-row").style.display = "flex";
     document.getElementById("chat-placeholder").style.display = "none";
 
-    // Mark as read
     updateDoc(doc(db, "conversations", convId), {
         [`unread.${user.id}`]: 0
     }).catch(() => {});
 
-    // Listen to messages
     if (msgUnsub) msgUnsub();
     const q = query(
         collection(db, "conversations", convId, "messages"),
@@ -411,10 +409,11 @@ window.sendMessage = async function () {
             text,
             time: serverTimestamp()
         });
+        // Use increment() so rapid messages don't overwrite each other
         await updateDoc(doc(db, "conversations", activeConvId), {
             lastMessage: text,
             lastTime: serverTimestamp(),
-            [`unread.${otherId}`]: (conv?.unread?.[otherId] || 0) + 1
+            [`unread.${otherId}`]: increment(1)
         });
     } catch (err) {
         console.error(err);
@@ -422,7 +421,6 @@ window.sendMessage = async function () {
     }
 };
 
-// Enter key to send
 document.getElementById("chat-input")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 });
