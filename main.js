@@ -190,6 +190,19 @@ function renderFeed() {
     list.innerHTML = activities.map(activityHTML).join("");
 }
 
+// ── Category image helper ─────────────────────────────────────────────────
+function categoryImage(category) {
+    const map = {
+        "Muziek": "muziek",
+        "Sport":  "sport",
+        "Bakken": "bakken",
+        "Film":   "film",
+        "Terras": "terras"
+    };
+    const key = map[category] || "muziek";
+    return `Images/mingle-${key}.png`;
+}
+
 // ── Activity card HTML ────────────────────────────────────────────────────
 function activityHTML(a) {
     const isOwner   = user && a.username === user.username;
@@ -208,6 +221,8 @@ function activityHTML(a) {
                <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
            </button>` : "";
 
+    const mascotSrc = categoryImage(a.category);
+
     return `
     <div class="activity-card" data-id="${esc(a.id)}" data-username="${esc(a.username)}">
         <div class="activity-author-row">
@@ -224,7 +239,7 @@ function activityHTML(a) {
                 <div class="activity-location">${esc(a.location)}</div>
                 ${a.description ? `<div class="activity-desc">${esc(a.description)}</div>` : ""}
             </div>
-            <img class="activity-mascot" src="Images/Mingle-Icon.png" alt="Mingle">
+            <img class="activity-mascot" src="${esc(mascotSrc)}" alt="${esc(a.category || 'Activiteit')}">
         </div>
         <div class="activity-card-bottom">
             <span class="activity-tag">${esc(a.category || "Activiteit")}</span>
@@ -252,7 +267,7 @@ async function submitPost() {
             color:       user.color,
             location,
             date,
-            category:    category || "Overig",
+            category:    category || "Muziek",
             description: description || "",
             time:        serverTimestamp(),
             joinedBy:    []
@@ -403,9 +418,7 @@ async function toggleFollow(targetUser, btn) {
 // ─────────────────────────────────────────────────────────────
 
 function safeOtherId(participants, myId) {
-    // Zoek iemand die niet ik ben
     let other = participants.find(p => p !== myId);
-    // Als het een self-chat is → gebruik mezelf
     if (!other) other = myId;
     return other;
 }
@@ -461,7 +474,6 @@ function renderConvList() {
 async function openConversation(targetUser) {
     showView("messages");
 
-    // Bestaat er al een gesprek?
     const existing = conversations.find(c => c.participants.includes(targetUser.id));
     if (existing) {
         selectConversation(existing.id);
@@ -509,7 +521,6 @@ function selectConversation(convId) {
     const otherId   = safeOtherId(conv.participants, user.id);
     const otherInfo = conv.participantInfo?.[otherId] || {};
 
-    // UI vullen
     document.getElementById("chat-header-av").textContent      = esc((otherInfo.name || "?")[0]);
     document.getElementById("chat-header-av").style.background = otherInfo.color || "#5b6ef5";
     document.getElementById("chat-header-name").textContent    = esc(otherInfo.name || "Onbekend");
@@ -518,12 +529,10 @@ function selectConversation(convId) {
     document.getElementById("chat-input-row").style.display    = "flex";
     document.getElementById("chat-placeholder").style.display  = "none";
 
-    // Unread resetten
     updateDoc(doc(db, "conversations", convId), {
         [`unread.${user.id}`]: 0
     }).catch(() => {});
 
-    // Messages listener
     if (msgUnsub) msgUnsub();
 
     const q = query(
